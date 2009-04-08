@@ -12,7 +12,6 @@ our $sub;
 our @args;
 our $trace;
 
-use Data::Dumper;
 use Socket;
 my ($socket, $sin);
 my $depth;
@@ -99,52 +98,6 @@ sub sub {
     # and return the correct context
     return (wantarray) ? @ret : defined(wantarray) ? $ret : undef;
 }
-
-sub trace {
-
-    my $trace = '';
-    my $i = 2;
-
-    while (1) {
-        my  @caller = caller($i);
-        my @trace_args = @args;
-        last unless scalar @caller;
-
-        my  ($package, $filename, $line, $subroutine, $hasargs, $wantarray,
-            $evaltext, $is_require, $hints, $bitmask) = @caller;
-
-#        next if $package eq 'DB';
-
-        my $string = $subroutine eq '(eval)'
-                    ?   $package . '::' . $subroutine . qq| [$i]|
-                        . (defined $evaltext ? qq[\n\t$evaltext] : '')
-                    :   $subroutine . qq| [$i]|;
-        $string =~ s/\n;$/;/gs;
-
-        $string .= qq[\n\t];
-
-        $string .= q[require|use - ] if $is_require;
-        $string .= defined $wantarray
-                        ? $wantarray ? 'list - ' : 'scalar - '
-                        : 'void - ';
-        $string .= $hasargs ? 'new stash' : 'no new stash';
-        $string .=  qq[\n\t] . $filename . ' line ' . $line . qq[\n];
-
-        local $Data::Dumper::Varname    = 'ARGS';
-        local $Data::Dumper::Indent     = 1;
-
-        for my $line ( split $/, Data::Dumper->Dump( \@trace_args ) ) {
-            $string .=  "\t$line\n";
-        }
-
-        $trace = $string . $trace;
-
-        $i++;
-    }
-
-    return $trace;
-}
-
 
 1;
 

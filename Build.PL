@@ -8,7 +8,6 @@ my $build = Module::Build->new(
     license     => 'mit',
     requires    => {
         'Socket'       => 0,
-        'Data::Dumper' => 0,
     }
 );
 $build->create_build_script;
