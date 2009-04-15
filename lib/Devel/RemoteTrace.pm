@@ -6,6 +6,10 @@ use strict;
 
 our $VERSION = '0.1';
 
+sub import {
+    $DB::trace = 1 if grep { $_ eq ':trace' } @_;
+}
+
 package DB;
 
 our $sub;
@@ -15,12 +19,6 @@ our $trace;
 use Socket;
 my ($socket, $sin);
 my $depth;
-
-
-sub import {
-    dblog("Debug::RemoteTrace::import() called\n");
-
-}
 
 BEGIN {
     # Force use of debuging:
