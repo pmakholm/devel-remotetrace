@@ -4,7 +4,7 @@ package Devel::RemoteTrace;
 use warnings;
 use strict;
 
-our $VERSION = '0.1';
+our $VERSION = '0.2';
 
 sub import {
     $DB::trace = 1 if grep { $_ eq ':trace' } @_;
@@ -119,7 +119,11 @@ Devel::RemoteTrace - Attachable call trace of perl scripts
 
 =head1 SYNOPSIS
 
-  $ perl -d:RemotePTRace your-script
+  $ perl -d:RemoteTrace your-script
+
+or
+
+  $ perl -d:RemoteTrace=:trace your-script
 
 or
 
@@ -133,6 +137,10 @@ localhost:9999.
 
 By using UDP the debug process doesn't have to care aboput if any body is
 listening. It just sends the trace messages.
+
+Tracing is enabled and disabled bysending the traced process ans SIGUSR2. If 
+the module is called with ':trace' as argument tracing is enabled from the
+beginning
 
 =head1 ENVIRONMENT
 
