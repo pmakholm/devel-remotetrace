@@ -98,6 +98,8 @@ sub sub {
 }
 
 sub postponed {
+    return unless $trace;
+
     my $arg = shift;
     if (ref \$arg eq 'GLOB') {
         dblog( "[$$] Loaded file ${ *$arg{SCALAR} }\n" );
