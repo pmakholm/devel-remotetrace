@@ -1,0 +1,244 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>Debugging Perl</title>
+<!-- metadata -->
+<meta name="generator" content="S5" />
+<meta name="version" content="S5 1.2a2" />
+<meta name="author" content="Peter Makholm" />
+<meta name="company" content="" />
+<!-- configuration parameters -->
+<meta name="defaultView" content="slideshow" />
+<meta name="controlVis" content="hidden" />
+<!-- style sheet links -->
+<link rel="stylesheet" href="ui/default/slides.css" type="text/css" media="projection" id="slideProj" />
+<link rel="stylesheet" href="ui/default/outline.css" type="text/css" media="screen" id="outlineStyle" />
+<link rel="stylesheet" href="ui/default/print.css" type="text/css" media="print" id="slidePrint" />
+<link rel="stylesheet" href="ui/default/opera.css" type="text/css" media="projection" id="operaFix" />
+<!-- embedded styles -->
+<style type="text/css" media="all">
+.imgcon {width: 525px; margin: 0 auto; padding: 0; text-align: center;}
+#anim {width: 270px; height: 320px; position: relative; margin-top: 0.5em;}
+#anim img {position: absolute; top: 42px; left: 24px;}
+img#me01 {top: 0; left: 0;}
+img#me02 {left: 23px;}
+img#me04 {top: 44px;}
+img#me05 {top: 43px;left: 36px;}
+</style>
+<!-- S5 JS -->
+<script src="ui/default/slides.js" type="text/javascript"></script>
+</head>
+<body>
+
+<div class="layout">
+<div id="controls"><!-- DO NOT EDIT --></div>
+<div id="currentSlide"><!-- DO NOT EDIT --></div>
+<div id="header"></div>
+<div id="footer">
+<h1>Debugging Perl</h1>
+<h2>Nordic Perl Workshop 2009, April 16th 2009</h2>
+</div>
+</div>
+
+<div class="presentation">
+
+<div class="slide">
+<h1>Debugging Perl
+<h2>Roll you own debugging code</h2>
+<h3>Peter Makholm</h3>
+<div class="handout"></div>
+</div>
+
+<div class="slide">
+<h1>perldebguts(1) says...</h1>
+<p>
+<blockquote>
+This is not the perldebug(1) manpage, which tells you how to use the debugger.
+This manpage describes low-level details concerning the debugger's internals,
+which range from difficult to impossible to understand for anyone who isn't
+incredibly intimate with Perl's guts.  Caveat lector.
+</blockquote>
+</div>
+
+<div class="slide">
+<h1>The story...</h1>
+<p>A Perl demon stopped responding at random times 
+<ul>
+<li>CPU usage went to 100%
+<li>Memory usage stayed constant
+<li>strace told us nothing
+<li>Using the standard perl debugger didn't seem like an option
+<li>Using 'print STDERR ...' wasn't viable either
+</ul>
+
+</div>
+
+<div class="slide">
+<h1>Two ways to call you debugger</h1>
+<p>There are two ways to call you own debugger:
+<ul>
+<li>Put everything needed in an environment varaible
+<pre>
+$ PERL5DB="sub DB::DB{ ... }"  \
+    perl -d youscript.pl
+</pre>
+<li>Make a module Devel::YouDB and call perl with
+<pre>
+$ perl -d:YouDB
+</pre>
+</ul>
+</div>
+
+<div class="slide">
+<h1>A minimal debugger</h1>
+<p>The function <tt>DB::DB</tt> is called for each statement.
+<p>
+<pre>
+{ 
+  package DB;
+  sub DB { $stmt++; print "." if $stmt % 25 }
+}
+</pre>
+<p>(but only if either $DB::single, $DB::trace, or $DB::signal is true)
+</div>
+
+<div class="slide">
+<h1>Debugging function calls</h1>
+<p><tt>DB::sub</tt> is called instead of each function call
+<p><pre>
+{
+  package DB;
+  sub DB {}
+  sub sub { print STDERR "$sub\n"; &$sub; }
+}
+</pre>
+<p>(not depending on any variables)
+</div>
+
+<div class="slide">
+<h1>Variables maintained by Perl</h1>
+<p>For each file (<tt>$filename</tt>) Perl maintains a few variables:
+<dl>
+<dt><tt>${"_<$filename"}</tt>
+<dl> - The filename (useless eh?, see 'Tracing compilation')
+<dt><tt>@{"_<$filename"}</tt>
+<dl> - The lines in the file
+<dt><tt>%{"_<$filenames"}</tt>
+<dl> - Breakpoints in the file (used internally???)
+</dl>
+</div>
+
+<div class="slide">
+<h1>A simple tracer</h1>
+<p>By using <tt>caller()</tt> we can use this to make a simple tracer:
+<pre>
+{
+  package DB;
+  sub DB { 
+    my ($package, $filename, $line) = caller;
+    print $main::{"_<$filename"}[$line]
+  }
+}
+</pre>
+</div>
+
+<div class="slide">
+<h1>Tracing subroutine calls</h1>
+<p>Tracing subroutine call is just as easy
+<pre>
+{
+  package DB;
+  sub sub {
+    my ($package, $filename, $line) = caller(-1);
+    print "Called $sub at $filename:$line\n";
+    &$sub;
+  }
+}
+</pre>
+</div>
+
+<div class="slide">
+<h1>Tracing compilation</h1>
+<p>If DB::postponed() exists it will be called when either a subroutine or a
+file is compiled.
+<ul>
+<li><tt>DB::postponed($subname)</tt> is called iff <tt>$DB::postponed{$subname}</tt> exists
+<li><tt>DB::postponed(*{"_<$filename"})</tt> is called for each required file
+</ul>
+</div>
+
+<div class="slide">
+<h1>Intermezzo: GLOB's (simplified)</h1>
+<p>A GLOB is a special type containing all the other types of the same name.
+I.e. <tt>*foo{SCALAR}</tt> is the same as <tt>$foo</tt> and
+<tt>*foo{ARRAY}</tt> is the same as <tt>@foo</tt>.
+<p>How can we differ between being called with an ordinary scalar or a glob?
+This seems to work:
+<pre>
+sub postponed {
+  my $arg = shift;
+  if (ref \$arg eq 'GLOB') { ... }
+  ...
+}
+</pre>
+</div>
+
+<div class="slide">
+<h1>Tracing compilation (cont.)</h1>
+<p>Then tracing compilation is easy:
+<pre>
+sub postponed {
+    my $arg = shift;
+    if (ref \$arg eq 'GLOB') {
+        print "Loaded file ${ *$arg{SCALAR} }\n";
+    } else {
+        print "Compiled function $arg\n";
+    }
+}
+</pre>
+<p>But remember to fill <tt>%DB::postponed</tt> with fully qualified subroutine names.
+</div>
+
+<div class="slide">
+<h1>Using $^P</h1>
+<p>$^P contains flags used by the debugger. Some are used at compile time and
+some at run time. These are the most usefull:
+<pre>
+0x01  Debug subroutine enter/exit.
+0x02  Line-by-line debugging.
+0x04  Switch off optimizations.
+0x08  Preserve more data for future interactive inspections.
+0x10  Keep info about source lines on which a subroutine is defined.
+0x20  Start with single-step on.
+0x100 Provide informative "file" names for evals
+0x200 Provide informative names to anonymous subroutines
+</pre>
+</div>
+
+<div class="slide">
+<h1>Putting it all together</h1>
+<p>See <a
+href="http://search.cpan.org/dist/Devel-RemoteTrace/">Devel::RemoteTrace</a>
+for everything put together
+</div>
+
+<div class="slide">
+<h1>Tips for the standard debugger</h1>
+<ul>
+<li>Remote debugging:
+<pre>
+$ PERLDB_OPTS="RemotePort=localhost:9999" \
+    perl -d youscript.pl
+</pre>
+<li>Sending SIGINT to the perl process will put it in single step-mode
+<li>Make explicit brakepoint directly in you code by setting $DB::single
+</ul>
+
+<!-- end presentation: -->
+</div>
+
+</body>
+</html>
