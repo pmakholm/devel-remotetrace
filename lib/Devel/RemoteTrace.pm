@@ -97,6 +97,16 @@ sub sub {
     return (wantarray) ? @ret : defined(wantarray) ? $ret : undef;
 }
 
+sub postponed {
+    my $arg = shift;
+    if (ref \$arg eq 'GLOB') {
+        dblog( "Loaded file ${ *$arg{SCALAR} }\n" );
+    } else {
+        dblog( "Compiled function $arg\n" );
+    }
+}
+
+
 1;
 
 __END__
