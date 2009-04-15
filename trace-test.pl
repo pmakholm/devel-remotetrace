@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+# Load postponed just to show postponed
+use Data::Dumper;
+
 sub foo {
     my $i;
     $i = 1_000_000;
