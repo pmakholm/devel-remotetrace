@@ -16,8 +16,15 @@ sub baz {
     sleep $_[0];
 }
 
+sub random {
+    my @func = ( \&foo, \&bar, \&baz, \&random );
+   
+    $func[ rand @func ]->(@_);
+} 
+
 while(1) {
     foo();
     bar();
     baz(1);
+    random(2);
 }
