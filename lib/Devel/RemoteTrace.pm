@@ -100,9 +100,9 @@ sub sub {
 sub postponed {
     my $arg = shift;
     if (ref \$arg eq 'GLOB') {
-        dblog( "Loaded file ${ *$arg{SCALAR} }\n" );
+        dblog( "[$$] Loaded file ${ *$arg{SCALAR} }\n" );
     } else {
-        dblog( "Compiled function $arg\n" );
+        dblog( "[$$] Compiled function $arg\n" );
     }
 }
 
