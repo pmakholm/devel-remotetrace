@@ -25,6 +25,8 @@ sub random {
     $func[ rand @func ]->(@_);
 } 
 
+print "Running with pid: $$\n";
+
 while(1) {
     foo();
     bar();
