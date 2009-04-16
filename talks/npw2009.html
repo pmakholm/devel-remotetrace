@@ -99,7 +99,7 @@ $ perl -d:YouDB
 <pre>
 { 
   package DB;
-  sub DB { $stmt++; print "." if $stmt % 25 }
+  sub DB { $stmt++; print STDERR "." if $stmt % 25 }
 }
 </pre>
 <p>(but only if either $DB::single, $DB::trace, or $DB::signal is true)
@@ -129,6 +129,7 @@ $ perl -d:YouDB
 <dt><tt>%{"_<$filenames"}</tt>
 <dl> - Breakpoints in the file (used internally???)
 </dl>
+<p>Also %DB::subs is maintained with all suroutine names as keys and the filename, startline, and endline of the subroutine definition used as values.
 </div>
 
 <div class="slide">
