@@ -38,6 +38,7 @@ BEGIN {
 }
 
 sub dblog {
+    local $!;
     send($socket, $_[0], 0, $sin);
 }
 
