@@ -1,4 +1,3 @@
-# $Id:$
 package Devel::RemoteTrace;
 
 use warnings;
@@ -6,15 +5,100 @@ use strict;
 
 our $VERSION = '0.2';
 
+
+=head1 NAME
+
+Devel::RemoteTrace - Attachable call trace of perl scripts
+(a.k.a) L<perldebguts> by example
+
+=head1 SYNOPSIS
+
+  $ perl -d:RemoteTrace your-script
+
+or 
+ 
+  use Devel::RemoteTrace;
+
+=head1 DESCRIPTION
+
+The purpose of this module is twofold. First of all it solves a real problem
+taht seems hard with the standard debugger: Trace the execution of a long
+running process when it stops serving requests.
+
+The secondary purpose is to be an easy understandable example for writing your
+own debuggers. A kind of perldebgutstut (but what a horrible name that would
+have been).
+
+=head1 USAGE
+
+Devel::RemoteTrace uses UDP to send trace messages to the address defined by
+the environent variables C<DEBUG_ADDR> and C<DEBUG_HOST>. If neither of these
+are defined the default is to send to localhost:9999.
+
+Tracing is enabled and disabled by sending the traced process an SIGUSR2. If
+Devel::RemoteTrace is loaded with the single argument ':trace' tracing is
+enabled from the beginning otherwise it is disabled from the beginning.
+
+=cut
+
 sub import {
     $DB::trace = 1 if grep { $_ eq ':trace' } @_;
 }
 
 package DB;
 
+=head1 perldebguts by examples
+
+=head2 Variables used or maintained by the interpreter
+
+=cut
+
+our ($single, $trace, $signal);
 our $sub;
-our @args;
-our $trace;
+our @args
+
+=over 4
+
+=item $DB::single, $DB::trace, $DB::signal
+
+If either of these are true the interpreter enters single step-mode where
+DB::DB() is called right before execution of each statement. 
+
+(Only $DB::trace are really used by Devel::RemoteTrace)
+
+=item $main::{"_<$filename"}
+
+For each compiled file (C<$filename>) the interpreter maintains a scalar
+containing the filename. This doesn't seem usefull at first, but DB::postponed
+is called with a glob pointing at this.
+
+=item @main::{"_<$filename"}
+
+For each compiled file (C<$filename>) the interpreter maintains an array that
+holds the lines of the file.
+
+Values in this array are magical in numeric context: they compare equal to zero
+only if the line is not breakable.
+
+=item %DB::sub
+
+The keys of this hash is the fully quallyfied name of each subroutine known to
+the debugger. The values is of the form 'filename:startline-endline'.
+
+=item $DB::sub
+
+In DB::sub() this scalar holds the fully quallyfied name of the subroutine to
+be called.
+
+=item @DB::args
+
+When called from the DB namespace, C<caller()> places the argument for the
+invoked subroutine here. 
+
+=back
+
+=cut
+
 
 use Socket;
 my ($socket, $sin);
@@ -44,6 +128,20 @@ sub dblog {
 
 $SIG{USR2} = sub { $trace = !$trace; };
 
+=head2 Subroutine hooks
+
+=over 4
+
+=item DB::DB
+
+This subroutine is called before exeution of each statement if either of
+$DB::single, $DB::trace, or $DB::signal is true. All debuggers are required to
+have this subroutine, but it might be empty.
+ 
+Use C<caller(0)> to get where in you code you are.
+
+=cut
+
 sub DB {
     return unless $trace;
 
@@ -53,6 +151,38 @@ sub DB {
     no strict 'refs';
     dblog( "[$$]$depth $Caller{filename}:$Caller{line}: " .  ${$main::{"_<$Caller{filename}"}}[$Caller{line}] );
 }
+
+=item DB::sub
+
+This subroutine is called B<instead> of each normal subroutine call. The
+subroutine name is placed in $DB::sub and the debugger is responsibel for make
+the actual subroutine call in the right context. This is done either directly
+at the return statement:
+
+    return &{ $sub };
+
+or by examinating wantarray():
+
+    my ($ret, @ret);
+    # Call the function in the correct context:
+
+    if (wantarray) {
+        @ret = &{ $sub };
+    } elsif (defined wantarray) {
+        $ret = &{ $sub };
+    } else {
+        &{ $sub };
+    }
+
+    # inspect the return value or something 
+
+    # and return the correct context
+    return (wantarray) ? @ret : defined(wantarray) ? $ret : undef;
+
+Use C<caller()> to inspct where in the code you are called from. As a special
+case C<caller(-1)> returns the stack frame you are about to call.
+
+=cut
 
 sub sub {
     unless ($trace) {
@@ -98,6 +228,20 @@ sub sub {
     return (wantarray) ? @ret : defined(wantarray) ? $ret : undef;
 }
 
+=item DB::postponed
+
+postponed is called when perl is finished compiling either a subroutine or a
+complete file. For subroutine this call is only made if the subroutine name
+exists as a key in %DB::postponed though.
+
+For subroutines the argument to postponed() is simply the subroutine name.
+
+For complete files the argument to postponed is the glob C<*{"_<$filename"}>
+referring to both the scalar containing the filename and the array containing
+the complete file.
+
+=cut
+
 sub postponed {
     return unless $trace;
 
@@ -113,47 +257,6 @@ sub postponed {
 1;
 
 __END__
-
-=head1 NAME
-
-Devel::RemoteTrace - Attachable call trace of perl scripts
-
-=head1 SYNOPSIS
-
-  $ perl -d:RemoteTrace your-script
-
-or
-
-  $ perl -d:RemoteTrace=:trace your-script
-
-or
-
-  use Devel::RemoteTrace;
-
-=head1 DESCRIPTION
-
-This module implements a perl debugger that sends a call trace of the debugged
-perl script to a remote destination via UDP. The default is to send to
-localhost:9999.
-
-By using UDP the debug process doesn't have to care aboput if any body is
-listening. It just sends the trace messages.
-
-Tracing is enabled and disabled bysending the traced process ans SIGUSR2. If 
-the module is called with ':trace' as argument tracing is enabled from the
-beginning
-
-=head1 ENVIRONMENT
-
-RemoteTrace uses the followin environment variables:
-
-=over 4
-
-=item DEBUG_ADDR
-
-=item DEBUG_PORT
-
-The hostname and port to send the call trace to.
 
 =back
 
