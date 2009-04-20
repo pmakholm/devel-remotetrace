@@ -55,7 +55,7 @@ package DB;
 
 our ($single, $trace, $signal);
 our $sub;
-our @args
+our @args;
 
 =over 4
 
